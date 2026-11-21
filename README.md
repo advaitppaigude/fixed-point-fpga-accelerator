@@ -2,9 +2,11 @@
 
 This project extends the existing classical-guitar string/fret localisation classifier with an FPGA implementation of fixed-point inference. It investigates how **number representation** and **multiply–accumulate (MAC) architecture** affect prediction agreement, logic utilisation, clock frequency and inference latency.
 
+> **Related project:** [Classical guitar string/fret localisation](https://github.com/advaitppaigude/classical-guitar-string-fret-localisation) — the original software classifier and recording data this FPGA extension builds on.
+
 The classifier uses five note-specific, three-class models (E4, D3, E3, F4 and G3). Audio feature extraction and standardisation run in Python; the FPGA receives eight quantised features, selects the relevant model coefficients and computes the three class scores. The target board is the **Terasic DE10-Lite (Intel MAX 10)**.
 
-The FPGA extension contains [Python quantisation and sweep scripts](python/), [exported models](models/), [SystemVerilog and Quartus projects](rtl/), [simulation tests](tb/), and [results](results/). The [software guide](../docs/software_maintenance.md) covers setup and the original [Python classifier](../src/).
+The FPGA extension contains [Python quantisation and sweep scripts](python/), [exported models](models/), [SystemVerilog and Quartus projects](rtl/), [simulation tests](tb/), and [results](results/). The original project supplies the Python feature extractor and recording data used by the experiments.
 
 Prediction agreement measures how often fixed-point inference preserves the floating-point classifier's decisions. Classification accuracy requires verified string/fret labels. The original 150 recordings were used during model development, and the additional 30 recordings were made in a separate session.
 
@@ -24,10 +26,11 @@ Formats use the notation **`B{total}_F{fractional}`**, where `B` is the total bi
 
 For a real value `x`, the integer encoding follows the project’s rounding-and-clipping convention:
 
-```text
-q = clip(round(x × 2^F), −2^(B−1), 2^(B−1) − 1)
-x_approx = q / 2^F
-```
+$$
+q = \operatorname{clip}\left(\operatorname{round}(x \times 2^F), -2^{B-1}, 2^{B-1} - 1\right),
+\qquad
+x_{\text{approx}} = \frac{q}{2^F}
+$$
 
 Rounding is to nearest integer (ties to even); representational overflow is clipped/saturated rather than allowed to wrap. Multiplying two `F`-fractional-bit operands gives a product with `2F` fractional bits, so the accumulator and bias share that fractional scaling and use a wider signed integer representation. In the parameterised RTL, `ACC_BITS = 2*BITS + 4`.
 
@@ -57,23 +60,23 @@ The per-note breakdown is available for [agreement](results/numerical_exploratio
 
 Each note-specific logistic-regression model has **three output classes**, each with eight weights and one bias. The FPGA receives eight already-standardised, quantised features. Three iterative MAC units compute class scores in parallel:
 
-```text
-Python: audio → feature extraction → standardisation → quantisation
-                                                       │
-                                              features[0:7], note
-                                                       │
-                                      ┌────────────────┴───────────────┐
-                                      │  model coefficient lookup      │
-                                      │  (24 weights + 3 biases/note)  │
-                                      └────────────────┬───────────────┘
-                                                       │
-                         ┌─────────────────────────────┼─────────────────────────────┐
-                         ▼                             ▼                             ▼
-                   MAC: class 0                  MAC: class 1                  MAC: class 2
-                         │                             │                             │
-                         └─────────────────────────────┼─────────────────────────────┘
-                                                       ▼
-                                           signed argmax / class index
+```mermaid
+flowchart TD
+    A["Python: audio → feature extraction → standardisation → quantisation"]
+    B["features[0:7], note"]
+    C["Model coefficient lookup<br/>(24 weights + 3 biases/note)"]
+    D["MAC: class 0"]
+    E["MAC: class 1"]
+    F["MAC: class 2"]
+    G["Signed argmax / class index"]
+
+    A --> B --> C
+    C --> D
+    C --> E
+    C --> F
+    D --> G
+    E --> G
+    F --> G
 ```
 
 The original MAC performs operand selection, signed multiplication, saturating accumulation and score registration in one cycle. Eight feature–weight products are accumulated serially **within each MAC**, while the three MACs operate **in parallel**. The class comparator selects the largest signed score, with deterministic tie-breaking. The original classifier core requires **9 clock cycles** from start acceptance to registered output.
@@ -159,7 +162,13 @@ The sweep identified:
 
 ![Format selection showing full agreement with and without clipping and highlighting B8_F5 and B10_F5](results/plots/bit_fraction_selection.png)
 
-The [two-panel agreement heatmap](results/plots/bit_fraction_agreement.png) uses the same scale for the 150 original and 30 independent recordings. The [clipping heatmaps](results/plots/bit_fraction_clipping.png) show counts and maximum excess for features, weights and biases. Grey cells mark untested combinations.
+The agreement heatmap uses the same scale for the 150 original and 30 independent recordings:
+
+![Two-panel fixed-point agreement heatmap for later and original recordings](results/plots/bit_fraction_agreement.png)
+
+The clipping heatmaps show counts and maximum excess for features, weights and biases. Grey cells mark untested combinations.
+
+![Clipping counts and maximum excess for features, weights, and biases](results/plots/bit_fraction_clipping.png)
 
 ## 7. Final format selection and limitations
 
@@ -189,35 +198,41 @@ The board regression had **+9.855 ns setup slack** at 50 MHz. Its latency is mea
 
 ## Reproducing the experiments
 
-From the repository root, activate the project environment and set `recordings_dir` to the directory containing `test_1.wav` through `test_30.wav`. Regenerating the plots requires Matplotlib.
+The Python sweeps use the feature extractor and `data/features.csv` from the [original localisation project](https://github.com/advaitppaigude/classical-guitar-string-fret-localisation), which are not duplicated in this standalone repository. For the commands below, check out this repository as a direct child of the original project root, set `original_project` to that root, and use an environment with the required Python packages. The regression-ROM generator expects the original `data/` directory one level above this repository. Set `recordings_dir` to the directory containing `test_1.wav` through `test_30.wav`. Regenerating the plots requires Matplotlib.
 
 ```bash
+original_project=/path/to/classical-guitar-string-fret-localisation
 source .venv/bin/activate
 recordings_dir=/path/to/independent-recordings
-python -m fpga.python.sweep_later_session "$recordings_dir"
-python -m fpga.python.sweep_bit_fraction_grid "$recordings_dir"
-python -m fpga.python.plot_bit_fraction_sweep
-python -c 'from fpga.python.convert_models_to_rom import generate_rom; generate_rom(10, 5)'
-python -m fpga.python.generate_regression_rom --format b10_f5 --recordings-dir "$recordings_dir"
-bash fpga/tb/run_full_classifier.sh b10_f5
-make -C fpga/tb/mac BITS=10
-make -C fpga/tb/mac BITS=10 MODULE=mac_functional_validation \
+export PYTHONPATH="$original_project${PYTHONPATH:+:$PYTHONPATH}"
+python -m python.sweep_later_session "$recordings_dir"
+python -m python.sweep_bit_fraction_grid "$recordings_dir"
+python -m python.plot_bit_fraction_sweep
+python -c 'from python.convert_models_to_rom import generate_rom; generate_rom(10, 5)'
+python -m python.generate_regression_rom --format b10_f5 --recordings-dir "$recordings_dir"
+bash tb/run_full_classifier.sh b10_f5
+make -C tb/mac BITS=10
+make -C tb/mac BITS=10 MODULE=mac_functional_validation \
     TOPLEVEL=pipelined_parametrised_multiply_accumulate \
-    VERILOG_SOURCES="$PWD/fpga/rtl/pipelined_parametrised_multiply_accumulate.sv" \
+    VERILOG_SOURCES="$PWD/rtl/pipelined_parametrised_multiply_accumulate.sv" \
     SIM_BUILD=sim_build/mac_b10
 ```
 
 The B10_F5 regression ROM contains 180 words, each stored as 22 hex digits. Each word has eight 10-bit features in bits `[79:0]` (feature 0 first), the expected class in `[81:80]`, the note in `[84:82]` and zero padding above it. The generated ROMs are available in [`rtl/rom/`](rtl/rom/), so the hardware projects can be built without the WAV files.
 
-From `fpga/rtl`, run the following with Quartus Prime Lite 25.1 on your PATH. In the Quartus GUI, open the corresponding `.qpf` and run **Processing → Start Compilation**.
+From `rtl/`, run the following with Quartus Prime Lite 25.1 on your PATH. In the Quartus GUI, open the corresponding `.qpf` and run **Processing → Start Compilation**.
 
 ```bash
+cd rtl
 quartus_sh --flow compile b10_f5_timing -c b10_f5_timing
 quartus_sh --flow compile b10_f5_full_classifier -c b10_f5_full_classifier
 quartus_sh --flow compile b10_f5_board_regression -c b10_f5_board_regression
 ```
 
-Quartus writes the fitter and timing reports to `fpga/rtl/output_files/`. For the board regression, add `b10_f5_board_regression.sof` from that directory to Quartus Programmer, select **USB-Blaster** in **JTAG** mode, check **Program/Configure**, and click **Start**. After programming, press **KEY0** to reset and **KEY1** to run. The expected display is **180**.
+Quartus writes the fitter and timing reports to `rtl/output_files/`. For the board regression, add `b10_f5_board_regression.sof` from that directory to Quartus Programmer, select **USB-Blaster** in **JTAG** mode, check **Program/Configure**, and click **Start**. After programming, press **KEY0** to reset and **KEY1** to run. The expected display is **180**.
 
 To reproduce the B8_F5 comparison, copy the full-classifier project, its sources and SDC to a separate directory. Set `BITS` to 8 in the copied QSF and generate the B8_F5 coefficients with `generate_rom(8, 5)`. Place the resulting files in the copied project's `rom/` directory and set `WEIGHTS_FILE` and `BIASES_FILE` in the copied `load_model.sv` to the literal paths `"rom/b8_f5_weights.mem"` and `"rom/b8_f5_biases.mem"`. Quartus interpreted the shorter filename branch of the current default expression as a binary constant during elaboration. The comparison run used explicit filenames in the temporary project.
+<<<<<<< HEAD
 
+=======
+>>>>>>> cc322c6 (fix outdated paths, add link to old proj, fix md formatting, embed existing results)

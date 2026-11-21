@@ -4,8 +4,8 @@ set -euo pipefail
 repo=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)
 source "$repo/.venv/bin/activate"
 
-rtl="$repo/fpga/rtl"
-tb="$repo/fpga/tb/full_classifier"
+rtl="$repo/rtl"
+tb="$repo/tb/full_classifier"
 
 if (( $# == 0 )); then
     set -- b5_f2 b6_f3 b8_f4
