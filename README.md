@@ -232,7 +232,3 @@ quartus_sh --flow compile b10_f5_board_regression -c b10_f5_board_regression
 Quartus writes the fitter and timing reports to `rtl/output_files/`. For the board regression, add `b10_f5_board_regression.sof` from that directory to Quartus Programmer, select **USB-Blaster** in **JTAG** mode, check **Program/Configure**, and click **Start**. After programming, press **KEY0** to reset and **KEY1** to run. The expected display is **180**.
 
 To reproduce the B8_F5 comparison, copy the full-classifier project, its sources and SDC to a separate directory. Set `BITS` to 8 in the copied QSF and generate the B8_F5 coefficients with `generate_rom(8, 5)`. Place the resulting files in the copied project's `rom/` directory and set `WEIGHTS_FILE` and `BIASES_FILE` in the copied `load_model.sv` to the literal paths `"rom/b8_f5_weights.mem"` and `"rom/b8_f5_biases.mem"`. Quartus interpreted the shorter filename branch of the current default expression as a binary constant during elaboration. The comparison run used explicit filenames in the temporary project.
-<<<<<<< HEAD
-
-=======
->>>>>>> cc322c6 (fix outdated paths, add link to old proj, fix md formatting, embed existing results)
