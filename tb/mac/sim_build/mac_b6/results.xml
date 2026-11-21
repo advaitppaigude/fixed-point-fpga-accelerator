@@ -1,0 +1,10 @@
+<?xml version='1.0' encoding='utf-8'?>
+<testsuites name="cocotb tests"><testsuite name="single_classifier_functional_validation" errors="0" failures="1" skipped="0" tests="1" time="0.030" timestamp="2026-11-20T15:31:26.994223+00:00" hostname="DESKTOP-E34CNI5"><testcase classname="single_classifier_functional_validation" name="functional_validation" time="0.030"><failure message="pipelined_parametrised_multiply_accumulate contains no child object named biases" type="AttributeError">Traceback (most recent call last):
+  File "/home/advait/classical-guitar-string-fret-localisation/fpga/tb/mac/single_classifier_functional_validation.py", line 147, in functional_validation
+    ACC_BITS = len(dut.biases[0])
+                   ^^^^^^^^^^
+  File "/home/advait/classical-guitar-string-fret-localisation/.venv/lib/python3.14/site-packages/cocotb/handle.py", line 461, in __getattr__
+    raise AttributeError(f"{self._path} contains no child object named {name}")
+AttributeError: pipelined_parametrised_multiply_accumulate contains no child object named biases. Did you mean: 'bias'?
+</failure><properties><property name="cocotb" value="True" /><property name="random_seed" value="1795188683" /><property name="file" value="/home/advait/classical-guitar-string-fret-localisation/fpga/tb/mac/single_classifier_functional_validation.py" /><property name="line" value="82" /><property name="sim_time_unit" value="ns" /><property name="sim_time_start" value="0.0" /><property name="sim_time_stop" value="5.0" /><property name="sim_time_duration" value="5.0" /><property name="sim_time_ratio" value="166.35278114891813" /></properties><system-err>Test failed with COCOTB_RANDOM_SEED=1795188683
+</system-err></testcase></testsuite></testsuites>

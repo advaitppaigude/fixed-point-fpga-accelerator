@@ -1,0 +1,18 @@
+Fitter Status : Successful - Sat Nov 21 14:51:26 2026
+Quartus Prime Version : 25.1std.0 Build 1129 10/21/2025 SC Lite Edition
+Revision Name : b8_f5_full_classifier
+Top-level Entity Name : full_classifier
+Family : MAX 10
+Device : 10M50DAF484C7G
+Timing Models : Final
+Total logic elements : 535 / 49,760 ( 1 % )
+    Total combinational functions : 501 / 49,760 ( 1 % )
+    Dedicated logic registers : 284 / 49,760 ( < 1 % )
+Total registers : 284
+Total pins : 73 / 360 ( 20 % )
+Total virtual pins : 0
+Total memory bits : 0 / 1,677,312 ( 0 % )
+Embedded Multiplier 9-bit elements : 3 / 288 ( 1 % )
+Total PLLs : 0 / 4 ( 0 % )
+UFM blocks : 0 / 1 ( 0 % )
+ADC blocks : 0 / 2 ( 0 % )
