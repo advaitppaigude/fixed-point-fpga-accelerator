@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # FPGA extension: fixed-point guitar string/fret classification
 
 This project extends the existing classical-guitar string/fret localisation classifier with an FPGA implementation of fixed-point inference. It investigates how **number representation** and **multiply–accumulate (MAC) architecture** affect prediction agreement, logic utilisation, clock frequency and inference latency.
