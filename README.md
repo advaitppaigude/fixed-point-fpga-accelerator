@@ -172,7 +172,7 @@ For this build, B10_F5 removes the one observed feature clip at a cost of 55 LEs
 
 Cocotb/Verilator matched the B10_F5 Python reference on **450/450 MAC scores**, **150/150 classifier predictions** with supplied coefficients and **150/150 full-classifier predictions** with ROM-loaded coefficients. The board regression matched **180/180** in Verilator for both B8_F5 and B10_F5. This is the physical board result for B10_F5:
 
-![B10_F5 test result on DE10 Lite](./assets/DE10Lite_B10_F5_test_result.jpg)
+![B10_F5 test result on DE10 Lite](./assets/DE10Lite_B10_F5_test_photo.jpg)
 
 | Other B10_F5 builds | LEs | Registers | DSP multiplier blocks | Fmax (MHz) | Start to valid (cycles) | Estimated latency at Fmax (ns) |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
