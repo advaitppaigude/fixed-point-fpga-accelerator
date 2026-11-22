@@ -60,7 +60,7 @@ The per-note breakdown is available for [agreement](results/numerical_exploratio
 
 Each note-specific logistic-regression model has **three output classes**, each with eight weights and one bias. The FPGA receives eight already-standardised, quantised features. Three iterative MAC units compute class scores in parallel:
 
-![Python-to-FPGA inference architecture](assets/Python_FPGA_work_split.svg)
+![Python-to-FPGA inference architecture](./assets/Python_FPGA_work_split.svg)
 
 The original MAC performs operand selection, signed multiplication, saturating accumulation and score registration in one cycle. Eight feature–weight products are accumulated serially **within each MAC**, while the three MACs operate **in parallel**. The class comparator selects the largest signed score, with deterministic tie-breaking. The original classifier core requires **9 clock cycles** from start acceptance to registered output.
 
