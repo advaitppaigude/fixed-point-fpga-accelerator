@@ -170,9 +170,11 @@ The clipping heatmaps show counts and maximum excess for features, weights and b
 
 For this build, B10_F5 removes the one observed feature clip at a cost of 55 LEs and one DSP multiplier block. Its post-fit Fmax is 17.79 MHz lower, while both formats have the same 200 ns core latency at the board's 50 MHz clock.
 
-Cocotb/Verilator matched the B10_F5 Python reference on **450/450 MAC scores**, **150/150 classifier predictions** with supplied coefficients and **150/150 full-classifier predictions** with ROM-loaded coefficients. The board regression matched **180/180** in Verilator for both B8_F5 and B10_F5. This is the physical board result for B10_F5:
+Cocotb/Verilator matched the B10_F5 Python reference on **450/450 MAC scores**, **150/150 classifier predictions** with supplied coefficients and **150/150 full-classifier predictions** with ROM-loaded coefficients. The regression matched **180/180** in Verilator for both B8_F5 and B10_F5. This is the physical board result for B10_F5:
 
 ![B10_F5 test result on DE10 Lite](./assets/DE10Lite_B10_F5_test_photo.jpg)
+
+The board regression also matches **180/180** predictions.
 
 | Other B10_F5 builds | LEs | Registers | DSP multiplier blocks | Fmax (MHz) | Start to valid (cycles) | Estimated latency at Fmax (ns) |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
@@ -183,7 +185,7 @@ The board regression had **+9.855 ns setup slack** at 50 MHz. Its latency is mea
 
 ## 8. Automated design-space exploration
 
-The original FPGA experiments required manual reconfiguration and synthesis for each numerical format that i wanted to test. This made systematic comparison across formats very cumbersome. Therefore, I decided to develop an automated design-space exploration workflow that:
+The original FPGA experiments required manual reconfiguration and synthesis for each numerical format that I wanted to test. This made systematic comparison across formats very cumbersome. Therefore, I developed an automated design-space exploration workflow that:
 - evaluates numerical accuracy and clipping
 - configures the corresponding RTL
 - runs Quartus compilation
