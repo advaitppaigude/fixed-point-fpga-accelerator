@@ -37,7 +37,7 @@ def write_mem(path, values, bits):
             f.write(f"{encoded:0{digits}X}\n")
 
 
-def generate_rom(bits, frac_bits):
+def generate_rom(bits, frac_bits, *, rom_dir=ROM_DIR):
     acc_bits = 2 * bits + 4
 
     all_weights = []
@@ -71,20 +71,21 @@ def generate_rom(bits, frac_bits):
     assert len(all_biases) == 15
 
     prefix = f"b{bits}_f{frac_bits}"
+    rom_dir.mkdir(parents=True, exist_ok=True)
 
     write_mem(
-        ROM_DIR / f"{prefix}_weights.mem",
+        rom_dir / f"{prefix}_weights.mem",
         all_weights,
         bits
     )
 
     write_mem(
-        ROM_DIR / f"{prefix}_biases.mem",
+        rom_dir / f"{prefix}_biases.mem",
         all_biases,
         acc_bits
     )
 
-    print(f"Generated {prefix}: 120 weights, 15 biases")
+    print(f"Generated {prefix}: 120 weights, 15 biases", flush=True)
 
 
 if __name__ == "__main__":

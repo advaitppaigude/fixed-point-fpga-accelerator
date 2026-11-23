@@ -6,22 +6,20 @@ from pathlib import Path
 
 import numpy as np
 
-from src.guitar_string_fret_localiser import (
-    extract_recording_features,
-    feature_columns,
-    load_dataset_features,
-)
-
 from .convert_models_to_rom import ROOT
-from .generate_regression_rom import expected_class
-from .sweep_later_session import load_models
+from .fixed_point_evaluation import CLIP_GROUPS, evaluate_format
 
 
 DEFAULT_OUTPUT = ROOT / "results/numerical_exploration/bit_fraction_sweep.csv"
-CLIP_GROUPS = ("later_feature", "original_feature", "weight", "bias")
 
 
 def load_vectors(models, recordings):
+    from src.guitar_string_fret_localiser import (
+        extract_recording_features,
+        feature_columns,
+        load_dataset_features,
+    )
+
     dataset = load_dataset_features()
     original = {
         note: dataset.loc[dataset["note"] == note, feature_columns].dropna().to_numpy()
@@ -43,47 +41,6 @@ def load_vectors(models, recordings):
     return datasets
 
 
-def quantise_array(values, bits, frac_bits):
-    scale = 1 << frac_bits
-    rounded = np.rint(values * scale)
-    limit = 1 << (bits - 1)
-    clamped = rounded.clip(-limit, limit - 1)
-    excess = np.abs(rounded - clamped)
-    return clamped.astype(np.int64), int(np.count_nonzero(excess)), float(excess.max(initial=0) / scale)
-
-
-def record_clipping(row, group, result):
-    quantised, count, max_excess = result
-    row[f"{group}_clips"] += count
-    row[f"{group}_max_clip_excess"] = max(row[f"{group}_max_clip_excess"], max_excess)
-    return quantised.tolist()
-
-
-def evaluate_format(bits, frac_bits, models, datasets, references):
-    acc_bits = 2 * bits + 4
-    row = {"B": bits, "F": frac_bits, "acc_bits": acc_bits}
-    for group in datasets:
-        row[f"{group}_matches"] = 0
-        row[f"{group}_total"] = sum(len(vectors) for vectors in datasets[group].values())
-    for group in CLIP_GROUPS:
-        row[f"{group}_clips"] = 0
-        row[f"{group}_max_clip_excess"] = 0.0
-
-    for note, model in models.items():
-        weights = record_clipping(row, "weight", quantise_array(model["weights"], bits, frac_bits))
-        biases = record_clipping(row, "bias", quantise_array(model["biases"], acc_bits, 2 * frac_bits))
-        for group, batches in datasets.items():
-            features = record_clipping(
-                row, f"{group}_feature", quantise_array(batches[note], bits, frac_bits)
-            )
-            references_for_note = references[group][note].tolist()
-            row[f"{group}_matches"] += sum(
-                expected_class(vector, weights, biases, acc_bits) == reference
-                for vector, reference in zip(features, references_for_note, strict=True)
-            )
-    return row
-
-
 def ranking_key(row):
     return (
         -row["later_matches"],
@@ -103,6 +60,8 @@ def main():
     missing = [path.name for path in recordings if not path.is_file()]
     if missing:
         parser.error(f"Missing recordings in {args.recordings_dir}: {', '.join(missing)}")
+
+    from .sweep_later_session import load_models
 
     models = load_models()
     datasets = load_vectors(models, recordings)

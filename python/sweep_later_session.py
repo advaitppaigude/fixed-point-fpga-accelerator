@@ -8,7 +8,7 @@ import numpy as np
 from src.guitar_string_fret_localiser import extract_recording_features, feature_columns, positions
 
 from .convert_models_to_rom import FORMATS, MODEL_DIR, NOTES, quantise
-from .generate_regression_rom import expected_class
+from .fixed_point_evaluation import expected_class
 
 
 SWEEP_FORMATS = (*FORMATS, (12, 8), (16, 10))

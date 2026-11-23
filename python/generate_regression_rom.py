@@ -9,32 +9,17 @@ import argparse
 from pathlib import Path
 
 import numpy as np
-import pandas as pd
-
-from src.guitar_string_fret_localiser import extract_recording_features, feature_columns
 
 from .convert_models_to_rom import FORMATS, MODEL_DIR, NOTES, ROM_DIR, ROOT, quantise, write_mem
+from .fixed_point_evaluation import expected_class
 
 
-FEATURE_BITS = 6
-FRAC_BITS = 3
-ACC_BITS = 2 * FEATURE_BITS + 4
 FEATURE_COUNT = 8
 
 
-def expected_class(features, weights, biases, acc_bits=ACC_BITS):
-    minimum = -(1 << (acc_bits - 1))
-    maximum = (1 << (acc_bits - 1)) - 1
-    scores = []
-    for class_weights, score in zip(weights, biases, strict=True):
-        # Match the RTL's descending index order and saturate after each add.
-        for feature, weight in zip(reversed(features), reversed(class_weights), strict=True):
-            score = max(minimum, min(maximum, score + feature * weight))
-        scores.append(score)
-    return max(range(len(scores)), key=scores.__getitem__)
-
-
 def main():
+    import pandas as pd
+
     formats = {f"b{bits}_f{frac}": (bits, frac) for bits, frac in FORMATS}
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--format", choices=formats, default="b6_f3")
@@ -51,6 +36,8 @@ def main():
     dataset = pd.read_csv(ROOT.parent / "data/features.csv")
     later_rows = {note: [] for note in NOTES}
     if args.recordings_dir is not None:
+        from src.guitar_string_fret_localiser import extract_recording_features, feature_columns
+
         for index in range(1, 31):
             note, vector = extract_recording_features(args.recordings_dir / f"test_{index}.wav")
             later_rows[note].append(vector)
