@@ -1,8 +1,8 @@
 # FPGA extension: fixed-point guitar string/fret classification
 
-This project extends the existing classical-guitar string/fret localisation classifier with an FPGA implementation of fixed-point inference. It investigates how **number representation** and **multiply–accumulate (MAC) architecture** affect prediction agreement, logic utilisation, clock frequency and inference latency.
+This project extends my classical guitar string/fret localisation project with fixed-point FPGA inference and automated hardware design-space exploration. It investigates how numerical precision and MAC architecture affect classification agreement, hardware resource utilisation, clock frequency and latency.
 
-> **Related project:** [Classical guitar string/fret localisation](https://github.com/advaitppaigude/classical-guitar-string-fret-localisation) — the original software classifier and recording data this FPGA extension builds on.
+The project includes a parameterised SystemVerilog accelerator, bit-exact verification, physical DE10-Lite validation and a Python-based exploration tool that automatically evaluates numerical configurations, invokes Quartus, collects implementation metrics and identifies Pareto-optimal designs.
 
 The classifier uses five note-specific, three-class models (E4, D3, E3, F4 and G3). Audio feature extraction and standardisation run in Python; the FPGA receives eight quantised features, selects the relevant model coefficients and computes the three class scores. The target board is the **Terasic DE10-Lite (Intel MAX 10)**.
 
@@ -180,6 +180,18 @@ Cocotb/Verilator matched the B10_F5 Python reference on **450/450 MAC scores**, 
 | DE10-Lite regression wrapper | 1,990 | 298 | 3 | 98.57 | 10 | 101.5 |
 
 The board regression had **+9.855 ns setup slack** at 50 MHz. Its latency is measured from classifier start to valid, excluding button synchronisation and the interval between test launches. The SDC models the 50 MHz clock and omits clock uncertainty and external I/O delays. The selection is based on 30 independent recordings and the 150 recordings used for model development.
+
+## 8. Automated design-space exploration
+
+The original FPGA experiments required manual reconfiguration and synthesis for each numerical format that i wanted to test. This made systematic comparison across formats very cumbersome. Therefore, I decided to develop an automated design-space exploration workflow that:
+- evaluates numerical accuracy and clipping
+- configures the corresponding RTL
+- runs Quartus compilation
+- collects the necessary hardware resource and timing results
+This had the aim of enabling automated design selection under specified constraints.
+Due to the fact that each synthesis run usually takes 2 minutes on my laptop, I decided that an exhaustive search strategy across formats would be inappropriate - searching across total bit widths 4 to 8 alone would result in a run time of > [INSERT TIME HERE] minutes.
+
+When it came to choosing the optimal design, I decided to consider Pareto optimality rather than combining LE usage, DSP usage and maximum achievable clock frequency into a single arbitrarily weighted objective. A design is retained if no other feasible configuration is at least as good across all three objectives and strictly better in at least one. This exposes the hardware trade-offs and allows the engineer to select an implementation according to application-specific constraints, such as resource budgets, timing requirements or the availability of DSP blocks. 
 
 ## Reproducing the experiments
 
