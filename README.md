@@ -189,7 +189,7 @@ The original FPGA experiments required manual reconfiguration and synthesis for 
 - runs Quartus compilation
 - collects the necessary hardware resource and timing results
 This had the aim of enabling automated design selection under specified constraints.
-Due to the fact that each synthesis run usually takes 2 minutes on my laptop, I decided that an exhaustive search strategy across formats would be inappropriate - searching across total bit widths 4 to 8 alone would result in a run time of > [INSERT TIME HERE] minutes.
+A major driver for this setup was the fact that each synthesis run took at least 2 minutes on my device. A brute-force approach that synthesised all 30 formats across B4–B8 would require roughly an hour. The automated workflow therefore applies analytical clipping constraints and numerical prediction-agreement checks before invoking the more expensive FPGA compilation stage.
 
 When it came to choosing the optimal design, I decided to consider Pareto optimality rather than combining LE usage, DSP usage and maximum achievable clock frequency into a single arbitrarily weighted objective. A design is retained if no other feasible configuration is at least as good across all three objectives and strictly better in at least one. This exposes the hardware trade-offs and allows the engineer to select an implementation according to application-specific constraints, such as resource budgets, timing requirements or the availability of DSP blocks. 
 
