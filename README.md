@@ -197,37 +197,63 @@ When it came to choosing the optimal design, I decided to consider Pareto optima
 
 ## Reproducing the experiments
 
-The Python sweeps use the feature extractor and `data/features.csv` from the [original localisation project](https://github.com/advaitppaigude/classical-guitar-string-fret-localisation), which are not duplicated in this standalone repository. For the commands below, check out this repository as a direct child of the original project root, set `original_project` to that root, and use an environment with the required Python packages. The regression-ROM generator expects the original `data/` directory one level above this repository. Set `recordings_dir` to the directory containing `test_1.wav` through `test_30.wav`. Regenerating the plots requires Matplotlib.
+### Automated design-space exploration
+
+Run the V1 sweep from the repository root in WSL2. Install Quartus Prime Lite 25.1 for Windows with MAX 10 device support for the `10M50DAF484C7G`. The sweep invokes the Windows `quartus_sh.exe` from WSL. Set `quartus` below to your installation path if it differs from the script's default. [Quartus Prime Lite 25.1 installer and MAX 10 device support](https://www.altera.com/downloads/fpga-development-tools/quartus-prime-lite-edition-design-software-version-25-1-windows)
+
+The numerical stage needs Python 3.10 or later and NumPy. It recomputes clipping and floating-point prediction agreement from the 150 original feature vectors and the five exported note-specific models. These inputs are extracted features and fixed model parameters, so a standalone checkout can run the sweep without WAV files or the original feature extractor. [Feature table](data/features.csv) · [Model archives](models/)
 
 ```bash
-original_project=/path/to/classical-guitar-string-fret-localisation
+python3 -m venv .venv
 source .venv/bin/activate
-recordings_dir=/path/to/independent-recordings
-export PYTHONPATH="$original_project${PYTHONPATH:+:$PYTHONPATH}"
-python -m python.sweep_later_session "$recordings_dir"
-python -m python.sweep_bit_fraction_grid "$recordings_dir"
-python -m python.plot_bit_fraction_sweep
-python -c 'from python.convert_models_to_rom import generate_rom; generate_rom(10, 5)'
-python -m python.generate_regression_rom --format b10_f5 --recordings-dir "$recordings_dir"
-bash tb/run_full_classifier.sh b10_f5
+python -m pip install numpy
+
+quartus=/mnt/c/altera_lite/25.1std/quartus/bin64/quartus_sh.exe
+python -m python.intelligent_search_v1_prune_by_clipping --numerical-only
+python -m python.intelligent_search_v1_prune_by_clipping --quartus "$quartus"
+```
+
+`--numerical-only` prints which formats pass clipping and agreement and exits before Quartus. The default grid uses the inclusive `START_BITS` and `END_BITS` in the V1 script, currently B5–B8, with `0 ≤ F < B` at each width. Repeat `--format` to select specific candidates, for example `--format B5_F2 --format B8_F5`. The defaults allow zero prediction disagreements and at most 0.5 clipping excess for any single value. Pass `--max-clips 0` to require zero clipped values, or set `--max-clips`, `--max-clip-excess` and `--max-disagreements` to choose other limits. [V1 sweep script](python/intelligent_search_v1_prune_by_clipping.py)
+
+For each format that passes both numerical filters, the script stages the full-classifier project, sets the width, generates the coefficient ROMs and invokes Quartus with the matching ROM paths. It prints the path to `dse_runs/sweep-*/results.csv`, with a separate `quartus.log` and Quartus reports for each build. Use `--runs-dir` to select another parent directory. The CSV records numerical metrics, compile status, logic elements, registers, DSP blocks, Fmax and timing slack. A build is feasible if compilation succeeds and setup and hold timing pass at the 50 MHz constraint. Once all builds finish, `pareto_optimal` marks feasible designs that are non-dominated on LE count, DSP block count and Fmax.
+
+The fresh-clone sweep covers the 150 original vectors. Reproducing the independent-session numerical results also requires the 30 later-session vectors at their original floating-point precision. The later-session feature archive is unavailable in this checkout. If you have it, place it at `data/later_features.npz` or specify its path with `--features-npz`. It needs `later_features` (the unstandardised feature matrix), `later_notes` (one note string per row) and `feature_columns` (the names in model order). The quantised board regression ROM below can be used to replay the saved cases on hardware.
+
+To regenerate the earlier numerical heatmaps from the saved two-session sweep CSV, install pandas and Matplotlib and run `python -m python.plot_bit_fraction_sweep` from the repository root. [Saved sweep CSV](results/numerical_exploration/bit_fraction_sweep.csv)
+
+### Cocotb verification
+
+The testbenches still expect the original layout. Run from an `fpga/` checkout under a parent directory containing `data/features.csv`. The tests read the models from `fpga/models/` and the feature table from that parent directory. Use the Makefiles directly because `tb/run_full_classifier.sh` looks for `rtl/` and `tb/` one level above the checkout. The tests require cocotb 2.x, NumPy, pandas, Verilator, GNU Make and a C++ toolchain. [Original localisation project](https://github.com/advaitppaigude/classical-guitar-string-fret-localisation)
+
+```bash
+python -m pip install cocotb numpy pandas
 make -C tb/mac BITS=10
 make -C tb/mac BITS=10 MODULE=mac_functional_validation \
     TOPLEVEL=pipelined_parametrised_multiply_accumulate \
     VERILOG_SOURCES="$PWD/rtl/pipelined_parametrised_multiply_accumulate.sv" \
     SIM_BUILD=sim_build/mac_b10
+
+repo="$PWD"
+sim_dir=$(mktemp -d)
+(
+    cd "$sim_dir" &&
+    ln -s "$repo/rtl/rom" rom &&
+    make -f "$repo/tb/full_classifier/Makefile" BITS=10
+)
 ```
 
-The B10_F5 regression ROM contains 180 words, each stored as 22 hex digits. Each word has eight 10-bit features in bits `[79:0]` (feature 0 first), the expected class in `[81:80]`, the note in `[84:82]` and zero padding above it. The generated ROMs are available in [`rtl/rom/`](rtl/rom/), so the hardware projects can be built without the WAV files.
+### Quartus projects and physical DE10-Lite regression
 
-From `rtl/`, run the following with Quartus Prime Lite 25.1 on your PATH. In the Quartus GUI, open the corresponding `.qpf` and run **Processing → Start Compilation**.
+The B10_F5 projects can also be built directly. In the Quartus GUI, open the corresponding `.qpf` in `rtl/` and run **Processing → Start Compilation**. From WSL, the equivalent commands are:
 
 ```bash
+quartus=/mnt/c/altera_lite/25.1std/quartus/bin64/quartus_sh.exe
 cd rtl
-quartus_sh --flow compile b10_f5_timing -c b10_f5_timing
-quartus_sh --flow compile b10_f5_full_classifier -c b10_f5_full_classifier
-quartus_sh --flow compile b10_f5_board_regression -c b10_f5_board_regression
+"$quartus" --flow compile b10_f5_timing -c b10_f5_timing
+"$quartus" --flow compile b10_f5_full_classifier -c b10_f5_full_classifier
+"$quartus" --flow compile b10_f5_board_regression -c b10_f5_board_regression
 ```
 
-Quartus writes the fitter and timing reports to `rtl/output_files/`. For the board regression, add `b10_f5_board_regression.sof` from that directory to Quartus Programmer, select **USB-Blaster** in **JTAG** mode, check **Program/Configure**, and click **Start**. After programming, press **KEY0** to reset and **KEY1** to run. The expected display is **180**.
+Quartus writes the fitter and timing reports to `rtl/output_files/`. The saved B10_F5 regression ROM contains 180 words of 22 hex digits each. Each word has eight 10-bit features in bits `[79:0]` (feature 0 first), the expected class in `[81:80]`, the note in `[84:82]` and zero padding above it. The coefficient and regression ROMs used by these projects are available in the repository. [ROM files](rtl/rom/)
 
-To reproduce the B8_F5 comparison, copy the full-classifier project, its sources and SDC to a separate directory. Set `BITS` to 8 in the copied QSF and generate the B8_F5 coefficients with `generate_rom(8, 5)`. Place the resulting files in the copied project's `rom/` directory and set `WEIGHTS_FILE` and `BIASES_FILE` in the copied `load_model.sv` to the literal paths `"rom/b8_f5_weights.mem"` and `"rom/b8_f5_biases.mem"`. Quartus interpreted the shorter filename branch of the current default expression as a binary constant during elaboration. The comparison run used explicit filenames in the temporary project.
+Connect the DE10-Lite to the host. In Quartus Programmer, select **USB-Blaster** in **JTAG** mode, add `rtl/output_files/b10_f5_board_regression.sof`, check **Program/Configure**, and click **Start**. Press **KEY0** to reset, then **KEY1** to run. The expected display is **180**.
